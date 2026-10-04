@@ -55,7 +55,10 @@ h1,.sub,#tip{text-shadow:0 1px 3px rgba(0,0,0,.7)}
 <div id="tip">Hover a route or city to see its numbers.</div>
 <div class="cols"><div><h2>Contracts</h2><div id="cons"></div></div><div><h2>Upgrades</h2><div id="ups"></div></div><div><h2>Event log</h2><div id="log"></div></div></div>
 <div class="cols"><div style="flex-basis:100%"><h2>Last delivery: real Qiskit circuit</h2><div id="bk">Checking backend...</div>
-<small style="color:var(--mute)">Reading the circuit: H + CX make a Bell pair per link. I is the noise slot. Then at each repeater: CX, H, measure (Bell measurement), and If-blocks apply X/Z corrections. The last CX, H, measure checks the end-to-end pair.</small><pre id="circ">No delivery yet.</pre></div></div>
+<small style="color:var(--mute)">Reading the circuit: H + CX make a Bell pair per link. I is the noise slot. Then at each repeater: CX, H, measure (Bell measurement), and If-blocks apply X/Z corrections. The last CX, H, measure checks the end-to-end pair.</small><pre id="circ">No delivery yet.</pre>
+<h2 style="margin-top:12px">Link generation: photon loss circuit</h2>
+<small style="color:var(--mute)">Each link sends photons down its fiber. X puts a photon on the fiber, I is the fiber itself (loss grows with distance, 0.2 dB per km), and M is the detector. A photon that arrives creates a pair. Detectors in the swap stage are lossy the same way, so a swap succeeds only if both photons are detected.</small>
+<div id="gk" style="font-size:13px;color:var(--mute);white-space:pre-line;margin-top:6px">Waiting for a link...</div><pre id="circ2">No link attempts yet.</pre></div></div>
 <details><summary>How the physics works here</summary>
 <p>Photons in fiber get lost exponentially: each kilometre costs a fixed fraction, so doubling a route length squares the odds against you. That is why long links almost never produce a pair.</p>
 <p>A contract is delivered only when every link on its route holds a pair at the same time.</p><p>A stored pair sits in quantum memory and decays toward useless (fidelity 0.25) as time passes. Pairs below 0.70 are thrown away.</p>
@@ -73,6 +76,7 @@ function f0(){let F=F0;for(let i=0;i<S.up.pur;i++)F=purF(F)[0];return F}
 function genMult(){let m=1+.5*S.up.src,F=F0;for(let i=0;i<S.up.pur;i++){const[nf,P]=purF(F);m*=.5*P;F=nf}return m}
 const lvl=()=>Math.floor(S.t/150);
 function upkeep(){let u=.1*(S.up.mem+S.up.src+S.up.pur);C.forEach(c=>{if(c.rep)u+=.25});return u}const API=location.protocol.startsWith('http')?'':'http://localhost:8000';
+const REM={on:true,busy:false,retry:0};
 let S;
 const $=id=>document.getElementById(id),cv=$('cv'),g=cv.getContext('2d');
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -90,7 +94,8 @@ function spawn(){if(S.cons.length>=Math.min(4,3+Math.floor(lvl()/4)))return;let 
 const d=Math.hypot((C[a].x-C[b].x)*W,(C[a].y-C[b].y)*H),mf=Math.round(([.8,.85,.88][Math.floor(Math.random()*3)]+Math.min(.04,.01*lvl()))*100)/100;
 S.cons.push({id:S.id++,a,b,mf,pay:Math.round((120+d*.9+(mf-.8)*1500)*(1+.08*lvl())),left:Math.max(55,80-4*lvl())});log(`New contract: ${C[a].n} to ${C[b].n}`)}
 function tick(){S.t+=.5;S.money-=upkeep()*.5;E.forEach(e=>{if(e.built&&S.t>=e.exp){e.built=false;e.pair=null;log(`Link down: ${C[e.a].n} to ${C[e.b].n}. Set it up again.`,'--bad')}});if(lvl()>S.lv){S.lv=lvl();log(`Demand level ${S.lv+1}: contracts are tougher and pay more.`,'--gold')}
-for(const e of E){if(!e.built)continue;if(e.pair!==null&&fid(e)<.7)e.pair=null;if(e.pair===null&&Math.random()<Math.min(1,e.p*genMult())){e.pair=S.t;e.f0=f0()}}
+const need=[];for(const e of E){if(!e.built)continue;if(e.pair!==null&&fid(e)<.7)e.pair=null;if(e.pair===null)need.push(e)}
+if(need.length){if(REM.on){if(!REM.busy)genRemote(need)}else{need.forEach(e=>{if(Math.random()<Math.min(1,e.p*genMult())){e.pair=S.t;e.f0=f0()}});if(--REM.retry<=0)REM.on=true}}
 for(const k of [...S.cons]){if(k.busy)continue;k.left-=.5;const r=route(k.a,k.b,true);
 if(r&&r.links.every(e=>e.pair!==null)){let F=fid(r.links[0]);for(let i=1;i<r.links.length;i++){const f=fid(r.links[i]);F=F*f+(1-F)*(1-f)/3}
 if(F>=k.mf+.01){const fs=r.links.map(fid);r.links.forEach(e=>e.pair=null);k.busy=true;resolve(k,fs,F)}}
@@ -100,8 +105,15 @@ if(S.strikes>=5||S.money<0||S.money>=2500){S.over=true;const w=S.money>=2500;$('
 $('over').innerHTML=`<b>${w?'Quantum internet online!':(S.money<0?'Bankrupt.':'Network failed.')}</b> You finished with $${Math.round(S.money)} after ${Math.round(S.t)}s. <button id="again">Play again</button>`;$('again').onclick=init}
 render()}
 function setBk(res){const b=$('bk');if(!res){b.textContent='Backend offline: using built-in formulas. Run server.py to enable Qiskit.';return}
-if(res.circuit){b.textContent=`Qiskit Aer: ${res.qubits} qubits, ${res.shots} shots, ${res.ms} ms. Measured fidelity ${res.fidelity.toFixed(3)} vs formula ${res.formula.toFixed(3)}. Bell measurements ${res.ok?'succeeded':'failed'}.`;$('circ').textContent=res.circuit}
+if(res.circuit){b.textContent=`Qiskit Aer: ${res.qubits} qubits, ${res.shots} shots, ${res.ms} ms. Measured fidelity ${res.fidelity.toFixed(3)} vs formula ${res.formula.toFixed(3)}. Bell measurements ${res.ok?'succeeded':'failed'}.`;$('circ').textContent=(res.detect?'Bell-measurement detectors (both photons must click):\n'+res.detect+'\n\n':'')+'Entanglement swapping:\n'+res.circuit}
 else b.textContent='Qiskit backend live.'}
+async function genRemote(need){REM.busy=true;
+try{const r=await fetch(API+'/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({links:need.map(e=>({id:E.indexOf(e),length:e.L,attempts:Math.max(1,Math.round(PER*genMult()))}))})});
+if(!r.ok)throw 0;const d=await r.json();
+d.results.forEach(x=>{const e=E[x.id];if(x.success&&e.built&&e.pair===null){e.pair=S.t;e.f0=f0()}});
+$('gk').textContent=d.results.map(x=>`${C[E[x.id].a].n}-${C[E[x.id].b].n}: ${x.length} km, photon survival ${(x.eta*100).toFixed(2)}%, arrivals ${x.hits}/${x.attempts}${x.success?'  -> pair created':''}`).join('\n')+`\n(${d.qubits} fiber qubits, ${d.ms} ms)`;$('circ2').textContent=d.circuit}
+catch(_){REM.on=false;REM.retry=20}
+REM.busy=false}
 async function resolve(k,fs,Fx){let res=null;
 try{const r=await fetch(API+'/api/swap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fidelities:fs})});if(r.ok)res=await r.json()}catch(e){}
 k.busy=false;setBk(res);if(!S.cons.includes(k))return;
@@ -143,7 +155,7 @@ if(h.c!==undefined){const c=C[h.c];if(c.rep)return;if(S.money<RC+40){log('Not en
 else{const e=h.e;if(e.built)return;e.built=true;e.exp=S.t+e.life*(.85+Math.random()*.3);log(`Fiber laid: ${C[e.a].n} to ${C[e.b].n}`)}render()});
 $('pause').onclick=()=>{S.paused=!S.paused;$('pause').textContent=S.paused?'Resume':'Pause'};
 setInterval(()=>{if(!S.paused&&!S.over)tick()},500);
-fetch(API+'/api/health').then(r=>r.ok?setBk({}):setBk(null)).catch(()=>setBk(null));addEventListener('resize',size);const SC={start:$('scr-start'),rules:$('scr-rules'),game:$('scr-game')};
+fetch(API+'/api/health').then(r=>{if(r.ok)setBk({});else{setBk(null);REM.on=false;REM.retry=20}}).catch(()=>{setBk(null);REM.on=false;REM.retry=20});addEventListener('resize',size);const SC={start:$('scr-start'),rules:$('scr-rules'),game:$('scr-game')};
 function show(n){for(const k in SC)SC[k].hidden=k!==n;if(n==='game')size();window.scrollTo(0,0)}
 $('b-start').onclick=()=>{init();show('game')};$('b-rules').onclick=()=>show('rules');$('b-back').onclick=()=>show('start');
 $('menu').onclick=()=>{S.paused=true;$('pause').textContent='Resume';show('start')};
