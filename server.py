@@ -94,7 +94,12 @@ class Req(BaseModel):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "backend": "qiskit-aer", "shots": SHOTS}
+    hw = None
+    f = Path(__file__).with_name("hardware_calibration.json")
+    if f.exists():
+        import json
+        hw = json.loads(f.read_text())   # written by run_on_ibm.py
+    return {"ok": True, "backend": "qiskit-aer", "shots": SHOTS, "hardware": hw}
 
 
 @app.post("/api/swap")

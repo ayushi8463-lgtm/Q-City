@@ -1,0 +1,9 @@
+{
+  "backend": "ibm_fez",
+  "shots": 4096,
+  "bell_fidelity": 0.8962,
+  "swap_fidelity": 0.8579,
+  "swap_predicted": 0.8068,
+  "job_id": "db17ptrid5ic73eqp4bg",
+  "time": "2026-10-04 21:51:21"
+}

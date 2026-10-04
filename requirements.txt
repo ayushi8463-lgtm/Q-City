@@ -2,3 +2,5 @@ qiskit
 qiskit-aer
 fastapi
 uvicorn
+# only needed for run_on_ibm.py (real IBM hardware), the game server does not use it
+qiskit-ibm-runtime
