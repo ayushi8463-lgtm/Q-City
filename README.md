@@ -94,8 +94,3 @@ Edit the constants at the top of `server.py`:
 - **Packages installed but not found:** use `python -m pip` and `python -m uvicorn` so both use the same Python.
 - **Old version shows after an update:** hard refresh with Cmd+Shift+R.
 
-## Limits
-
-- The quantum models (fiber loss, Werner-state noise, detector loss) are simplified standard models, not a full network simulation.
-- Constants like 28 attempts per tick, 25 s memory time and 0.96 starting fidelity are tuned for gameplay.
-- The hosted web version has no server, so it uses formulas instead of Qiskit.
